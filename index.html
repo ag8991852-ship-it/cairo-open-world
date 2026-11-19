@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#101820"><title>القاهرة الكبرى | عالم مفتوح</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
+:root{color-scheme:dark}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101820;font-family:Cairo,system-ui,sans-serif;color:#fff}#game{position:fixed;inset:0}canvas{display:block}
+#hud{position:fixed;inset:0;pointer-events:none}.top{position:absolute;top:env(safe-area-inset-top,12px);left:14px;right:14px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.brand,.stats,.mission,.hint,.map,.controls button,.action{background:#101820c9;border:1px solid #ffffff24;backdrop-filter:blur(12px);box-shadow:0 8px 28px #0004}.brand{padding:9px 14px;border-radius:16px}.brand b{display:block;font-size:15px}.brand small{color:#a9c5c9;font-size:10px}.stats{display:flex;gap:14px;padding:8px 13px;border-radius:15px;font-size:12px}.stats span{color:#f5c96a;font-weight:800}.mission{position:absolute;top:82px;right:14px;max-width:240px;padding:10px 13px;border-radius:14px;font-size:11px}.mission strong{display:block;color:#f5c96a;font-size:12px;margin-bottom:3px}.map{position:absolute;top:82px;left:14px;width:116px;height:116px;border-radius:16px;overflow:hidden}.map canvas{width:100%;height:100%}.hint{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);padding:7px 13px;border-radius:20px;color:#c8d9d9;font-size:10px;white-space:nowrap}.controls{position:absolute;inset:auto 0 26px;display:flex;justify-content:space-between;align-items:end;padding:0 22px;pointer-events:none}.stick{width:116px;height:116px;border-radius:50%;border:1px solid #ffffff55;background:#10212a66;position:relative;pointer-events:auto;touch-action:none}.knob{position:absolute;width:48px;height:48px;border-radius:50%;background:#e5b95dce;border:2px solid #fff9;left:34px;top:34px;box-shadow:0 4px 18px #0008}.actions{display:flex;gap:10px;align-items:end;pointer-events:auto}.action{border-radius:50%;width:58px;height:58px;color:#fff;font:700 11px Cairo;touch-action:none}.action.primary{background:#d69c3aee;color:#171b20;width:68px;height:68px}.panel{position:absolute;bottom:150px;left:50%;transform:translateX(-50%);background:#111c22e8;border:1px solid #f2c56c66;border-radius:14px;padding:10px 16px;font-size:12px;display:none;max-width:85vw;text-align:center}.panel.show{display:block}.toast{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#111c22ed;padding:14px 20px;border-radius:16px;border:1px solid #f2c56c66;display:none;text-align:center}.toast.show{display:block}
+@media(min-width:800px){.controls{display:none}.hint{bottom:16px}.mission{top:88px}.map{top:88px}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js"}}</script>
+</head>
+<body><div id="game"></div><div id="hud">
+<div class="top"><div class="brand"><b>القاهرة الكبرى</b><small>عالم مفتوح • نسخة تجريبية 0.1</small></div><div class="stats"><div>💰 <span id="money">250</span> ج</div><div>🕒 <span id="clock">08:30</span></div><div>📍 <span id="zone">وسط البلد</span></div></div></div>
+<div class="mission"><strong>مهمتك الأولى</strong><div id="missionText">استكشف الشارع واتجه إلى علامة المحطة الذهبية.</div></div><div class="map"><canvas id="minimap" width="116" height="116"></canvas></div>
+<div class="panel" id="panel">اضغط E للتفاعل</div><div class="toast" id="toast"></div>
+<div class="controls"><div class="stick" id="stick"><div class="knob" id="knob"></div></div><div class="actions"><button class="action" id="interact">تفاعل</button><button class="action" id="jump">قفز</button><button class="action primary" id="run">جري</button></div></div>
+<div class="hint">WASD للحركة • Shift للجري • Space للقفز • E للتفاعل • اسحب الشاشة لتدوير الكاميرا</div></div>
+<script type="module">
+import * as THREE from 'three';
+const root=document.querySelector('#game'),scene=new THREE.Scene();scene.background=new THREE.Color(0x9bb9c6);scene.fog=new THREE.Fog(0x9bb9c6,65,230);
+const camera=new THREE.PerspectiveCamera( sixty=62,innerWidth/innerHeight,.1,500);
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;root.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xd9edff,0x80664b,2.0));const sun=new THREE.DirectionalLight(0xffe0ae,2.6);sun.position.set(-45,75,35);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-90;sun.shadow.camera.right=90;sun.shadow.camera.top=90;sun.shadow.camera.bottom=-90;scene.add(sun);
+const mat=(c,r=.85,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
+const asphalt=mat(0x343b40),sidewalk=mat(0xb9aa91),sand=mat(0xc8ad83),white=mat(0xe7dfc9),dark=mat(0x20272b),glass= new THREE.MeshStandardMaterial({color:0x4b7380,roughness:.25,metalness:.25}),green=mat(0x48664a),gold=mat(0xd7a94f);
+function box(w,h,d,material,x,y,z,shadow=true){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);o.position.set(x,y,z);o.castShadow=shadow;o.receiveShadow=true;scene.add(o);return o}
+const ground=box(500,.5,500,mat(0x9a896f),0,-.4,0,false);
+box(18,.12,210,asphalt,0,-.08,0,false);box(210,.12,18,asphalt,0,-.07,0,false);
+for(let i=-100;i<=100;i+=10){box(.16,.02,1.8,white,i,.01,0,false);box(1.8,.02,.16,white,0,.01,i,false)}
+// pavements
+for(const s of [-1,1]){box(3,.35,210,sidewalk,s*10.5,.05,0);box(210,.35,3,sidewalk,0,.05,s*10.5)}
+// blocks around central crossroads
+const buildingMats=[0xc9b89b,0xd4c4a8,0xb9a78d,0xd9cdb7,0xa99b88,0xc4b9a8].map(c=>mat(c));
+function building(x,z,w,d,h,idx){
+ const base=buildingMats[idx%buildingMats.length];box(w,h,d,base,x,h/2,z);
+ box(w+0.25,.35,d+0.25,mat(0x75685b),x,h-.12,z);
+ const floors=Math.max(2,Math.floor(h/3.2));
+ for(let f=0;f<floors;f++)for(let xx=-w/2+1.2;xx<w/2-0.4;xx+=2.5){
+  const yy=1.5+f*3.1;if(yy>h-1)continue;
+  box(1.15,1.45,.09,glass,x+xx,yy,z-d/2-.06,false);
+  box(1.2,.12,.16,white,x+xx,yy-.78,z-d/2-.13,false);
+  box(.12,1.5,.12,white,x+xx-.65,yy,z-d/2-.13,false);
+ }
+ // balconies and roof details
+ if(w>10){box(w*.65,.18,.8,dark,x,h*.68,z-d/2-.45);box(1.2,1.2,1.2,base,x-w*.25,h+.6,z)}
+}
+for(let z=-95;z<=95;z+=30){for(const s of [-1,1]){building(s*24,z,18,23,18+((Math.abs(z/30)%3)*7),Math.abs(z/30));building(s*48,z,25,23,25+((z+100)%3)*5,Math.abs(z/30)+2)}}
+for(let x=-95;x<=95;x+=30){if(Math.abs(x)<20)continue;for(const s of [-1,1])building(x,s*24,23,18,17+((x+100)%4)*5,Math.abs(x/30)+1)}
+// shops
+for(let i=0;i<5;i++){let x=-8+i*4;box(3.5,3.2,1.1,mat([0x9c573a,0x3f746c,0x9b7a42,0x657c92,0x8c554f][i]),x,1.65,-13);box(3.5,.45,1.3,gold,x,3.45,-13);box(2.8,1.25,.08,glass,x,1.5,-12.42,false)}
+// trees
+function tree(x,z){let trunk=mat(0x62452e),leaf=mat(0x3e6948);const t=new THREE.Mesh(new THREE.CylinderGeometry(.22,.32,2,7),trunk);t.position.set(x,1,z);scene.add(t);const l=new THREE.Mesh(new THREE.SphereGeometry(1.45,8,7),leaf);l.position.set(x,3.1,z);l.castShadow=true;scene.add(l)}
+for(let z=-90;z<=90;z+=13){tree(-10.7,z);tree(10.7,z)}
+// tram stop / mission landmark
+box(5,.2,3,gold,15,.2,-34);box(4,2.5,.2,glass,15,1.5,-35.3);box(4.5,.18,3.4,dark,15,2.8,-34);
+const marker=new THREE.Mesh(new THREE.CylinderGeometry(.45,.45,.12,24),gold);marker.position.set(15,.3,-34);scene.add(marker);const ring=new THREE.Mesh(new THREE.TorusGeometry(1.25,.12,8,32),gold);ring.rotation.x=Math.PI/2;ring.position.set(15,.3,-34);scene.add(ring);
+// Nile vista as blue canal on far edge, skyline and bridge
+box(28,.25,220,mat(0x397e91,.25,.2),-92,-.05,0,false);for(let z=-85;z<90;z+=14){box(2,.25,1.2,mat(0x6e7777),-77,.1,z,false)}
+// player
+const player=new THREE.Group();scene.add(player);const skin=mat(0xb87e5a),shirt=mat(0x2b5260),pants=mat(0x30343a),shoe=mat(0x171b1e);
+const torso=new THREE.Mesh(new THREE.CapsuleGeometry(.48,.8,4,8),shirt);torso.position.y=1.65;torso.castShadow=true;player.add(torso);
+const head=new THREE.Mesh(new THREE.SphereGeometry(.34,12,10),skin);head.position.y=2.45;head.castShadow=true;player.add(head);
+const hair=new THREE.Mesh(new THREE.SphereGeometry(.35,12,8,0,Math.PI*2,0,Math.PI*.55),dark);hair.position.y=2.56;player.add(hair);
+const arms=[];for(const s of [-1,1]){const arm=new THREE.Mesh(new THREE.CapsuleGeometry(.16,.68,4,7),shirt);arm.position.set(s*.58,1.65,0);arm.rotation.z=s*-.12;player.add(arm);arms.push(arm)}
+const legs=[];for(const s of [-1,1]){const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.19,.72,4,7),pants);leg.position.set(s*.23,.65,0);player.add(leg);legs.push(leg);const foot=new THREE.Mesh(new THREE.BoxGeometry(.34,.18,.52),shoe);foot.position.set(s*.23,.16,-.12);player.add(foot)}
+player.position.set(0,0,5);
+// cars
+const cars=[];const carColors=[0xc8c6bd,0x2e526a,0x9e4234,0xd0a34b,0x252a2e,0x56725b];
+function makeCar(x,z,axis,dir,speed){const g=new THREE.Group();const body=new THREE.Mesh(new THREE.BoxGeometry(2.1,.85,4),mat(carColors[cars.length%carColors.length],.55,.15));body.position.y=.8;body.castShadow=true;g.add(body);const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.65,.85,1.9),glass);cabin.position.set(0,1.48,-.2);g.add(cabin);for(const xx of [-1,1])for(const zz of [-1.25,1.25]){const wh=new THREE.Mesh(new THREE.CylinderGeometry(.36,.36,.22,12),dark);wh.rotation.z=Math.PI/2;wh.position.set(xx,.42,zz);g.add(wh)}g.position.set(x,0,z);scene.add(g);cars.push({g,axis,dir,speed,origin:axis==='z'?z:x})}
+for(let i=0;i<8;i++){makeCar(i%2?3:-3,-95+i*27,'z',i%2?1:-1,5+Math.random()*3);makeCar(-95+i*27,i%2?3:-3,'x',i%2?1:-1,4+Math.random()*3)}
+// pedestrians
+const people=[];function pedestrian(x,z,color){const g=new THREE.Group();const b=new THREE.Mesh(new THREE.CapsuleGeometry(.3,.65,3,6),mat(color));b.position.y=1.2;g.add(b);const h=new THREE.Mesh(new THREE.SphereGeometry(.22,8,7),skin);h.position.y=1.9;g.add(h);g.position.set(x,0,z);scene.add(g);people.push({g,x,z,phase:Math.random()*6})}
+for(let i=0;i<18;i++)pedestrian((Math.random()>.5?1:-1)*(12+Math.random()*4),-90+Math.random()*180,[0x3d5863,0x9b704b,0x575a60,0x6c7956][i%4]);
+// ambient landmarks and signage
+const sign=box(7,1.5,.2,mat(0x244f50),0,5,-15);const signText=document.createElement('canvas');signText.width=512;signText.height=128;const ctx=signText.getContext('2d');ctx.fillStyle='#244f50';ctx.fillRect(0,0,512,128);ctx.fillStyle='#f4d18a';ctx.font='bold 54px Cairo';ctx.textAlign='center';ctx.fillText('القاهرة • وسط البلد',256,82);const tex=new THREE.CanvasTexture(signText);sign.material=new THREE.MeshStandardMaterial({map:tex});
+const keys={};addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key.toLowerCase()==='e')interact();if(e.code==='Space')jump()});addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+let yaw=0,moveX=0,moveY=0,running=false,velocityY=0,onGround=true,elapsed=0,money=250,missionDone=false,clockMinutes=510;
+const panel=document.querySelector('#panel'),toast=document.querySelector('#toast');
+function say(t){toast.textContent=t;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2200)}
+function interact(){if(player.position.distanceTo(new THREE.Vector3(15,0,-34))<7){if(!missionDone){missionDone=true;money+=100;document.querySelector('#money').textContent=money;document.querySelector('#missionText').textContent='أحسنت! وصلت للمحطة. استكشف المدينة بحرية.';say('أنجزت أول مشوار! +100 جنيه')}else say('المحطة الرئيسية • وسط البلد')}else say('استكشف المكان واقترب من العلامة الذهبية للتفاعل')}
+function jump(){if(onGround){velocityY=7;onGround=false}}
+document.querySelector('#interact').onclick=interact;document.querySelector('#jump').onclick=jump;document.querySelector('#run').onpointerdown=()=>running=true;document.querySelector('#run').onpointerup=()=>running=false;
+const stick=document.querySelector('#stick'),knob=document.querySelector('#knob');let active=false;function stickMove(e){const r=stick.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let dx=e.clientX-cx,dy=e.clientY-cy,l=Math.hypot(dx,dy),max=42;if(l>max){dx*=max/l;dy*=max/l}knob.style.transform='translate('+dx+'px,'+dy+'px)';moveX=dx/max;moveY=dy/max}
+stick.addEventListener('pointerdown',e=>{active=true;stick.setPointerCapture(e.pointerId);stickMove(e)});stick.addEventListener('pointermove',e=>{if(active)stickMove(e)});function resetStick(){active=false;moveX=moveY=0;knob.style.transform=''}stick.addEventListener('pointerup',resetStick);stick.addEventListener('pointercancel',resetStick);
+let drag=false,lastX=0;renderer.domElement.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'){drag=true;lastX=e.clientX}});addEventListener('pointerup',()=>drag=false);addEventListener('pointermove',e=>{if(drag){yaw-=(e.clientX-lastX)*.005;lastX=e.clientX}});
+let touchX=0;renderer.domElement.addEventListener('touchstart',e=>{if(e.touches.length===1)touchX=e.touches[0].clientX},{passive:true});renderer.domElement.addEventListener('touchmove',e=>{if(e.touches.length===1){const x=e.touches[0].clientX;yaw-=(x-touchX)*.004;touchX=x}},{passive:true});
+const clock=new THREE.Clock();const v=new THREE.Vector3(),forward=new THREE.Vector3(),right=new THREE.Vector3();
+function updateMap(){const c=document.querySelector('#minimap'),c2=c.getContext('2d');c2.clearRect(0,0,116,116);c2.fillStyle='#28343a';c2.fillRect(0,0,116,116);c2.strokeStyle='#d5c5a4';c2.lineWidth=5;c2.beginPath();c2.moveTo(58,0);c2.lineTo(58,116);c2.moveTo(0,58);c2.lineTo(116,58);c2.stroke();c2.fillStyle='#c99b4e';c2.fillRect(65,37,5,5);c2.fillStyle='#fff';c2.beginPath();c2.arc(58+player.position.x*.45,58+player.position.z*.45,4,0,Math.PI*2);c2.fill()}
+function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.04);elapsed+=dt;
+ let ix=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0)+moveX,iy=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0)+moveY;
+ const len=Math.hypot(ix,iy);if(len>1){ix/=len;iy/=len}
+ const speed=(running||keys.shift?10:5.2);const angle=yaw;forward.set(-Math.sin(angle),0,-Math.cos(angle));right.set(Math.cos(angle),0,-Math.sin(angle));v.copy(forward).multiplyScalar(-iy).addScaledVector(right,ix);
+ if(v.lengthSq()>.001){v.normalize();player.position.addScaledVector(v,speed*dt);player.rotation.y=Math.atan2(-v.x,-v.z);torso.rotation.z=Math.sin(elapsed*12)*.035;arms[0].rotation.x=Math.sin(elapsed*12)*.45;arms[1].rotation.x=-Math.sin(elapsed*12)*.45;legs[0].rotation.x=-Math.sin(elapsed*12)*.55;legs[1].rotation.x=Math.sin(elapsed*12)*.55}else{arms.forEach(a=>a.rotation.x=0);legs.forEach(a=>a.rotation.x=0)}
+ player.position.x=THREE.MathUtils.clamp(player.position.x,-82,82);player.position.z=THREE.MathUtils.clamp(player.position.z,-100,100);
+ velocityY-=18*dt;player.position.y+=velocityY*dt;if(player.position.y<=0){player.position.y=0;velocityY=0;onGround=true}
+ const desired=new THREE.Vector3(player.position.x+Math.sin(yaw)*10,player.position.y+6,player.position.z+Math.cos(yaw)*10);camera.position.lerp(desired,1-Math.pow(.001,dt));camera.lookAt(player.position.x,player.position.y+1.5,player.position.z);
+ for(const c of cars){c.g.position[c.axis]+=(c.axis==='z'?c.dir:-c.dir)*c.speed*dt;if(c.g.position[c.axis]>105)c.g.position[c.axis]=-105;if(c.g.position[c.axis]<-105)c.g.position[c.axis]=105}
+ for(const p of people){p.g.position.x=p.x+Math.sin(elapsed*.5+p.phase)*1.1;p.g.position.z=p.z+Math.cos(elapsed*.4+p.phase)*2}
+ // subtle day cycle
+ const daylight=.72+.28*Math.sin(elapsed*.025);sun.intensity=1.8*daylight;scene.background.setHSL(.56,.22,.58*daylight);scene.fog.color.copy(scene.background);
+ clockMinutes=(clockMinutes+dt*.22)%1440;const hh=String(Math.floor(clockMinutes/60)).padStart(2,'0'),mm=String(Math.floor(clockMinutes%60)).padStart(2,'0');document.querySelector('#clock').textContent=hh+':'+mm;
+ const d=player.position.distanceTo(new THREE.Vector3(15,0,-34));panel.classList.toggle('show',d<8&&!missionDone);updateMap();renderer.render(scene,camera)}
+animate();
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.7))});
+say('أهلاً بيك في القاهرة الكبرى! اتحرك ناحية العلامة الذهبية.');
+</script></body></html>
