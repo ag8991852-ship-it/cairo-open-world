@@ -20,7 +20,7 @@
 <script type="module">
 import * as THREE from 'three';
 const root=document.querySelector('#game'),scene=new THREE.Scene();scene.background=new THREE.Color(0x9bb9c6);scene.fog=new THREE.Fog(0x9bb9c6,65,230);
-const camera=new THREE.PerspectiveCamera( sixty=62,innerWidth/innerHeight,.1,500);
+const camera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.1,500);
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;root.appendChild(renderer.domElement);
 scene.add(new THREE.HemisphereLight(0xd9edff,0x80664b,2.0));const sun=new THREE.DirectionalLight(0xffe0ae,2.6);sun.position.set(-45,75,35);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-90;sun.shadow.camera.right=90;sun.shadow.camera.top=90;sun.shadow.camera.bottom=-90;scene.add(sun);
 const mat=(c,r=.85,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
